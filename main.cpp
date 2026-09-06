@@ -289,5 +289,8 @@ VesselInformation VesselInformation::from_xdyn( //< ned/frd -> enu/flu
 
 int main()
 {
+    std::cout << "kWorldEnuNed"<< kWorldEnuNed << std::endl;
+    std::cout << "kWorldEnuNed"<< kWorldEnuNed(1,0) << std::endl;
+    std::cout << kWorldEnuNed.Determinant() << std::endl;
     return 0;
 }
