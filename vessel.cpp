@@ -3,7 +3,9 @@
 #include <iostream>
 #include <stdexcept>
 
-
+/**
+ * @brief Stream a human-readable coordinate convention name.
+ */
 std::ostream& operator<<(std::ostream& os, Convention s)
 {
     switch (s) {
@@ -70,6 +72,13 @@ static const gz::math::Matrix3d kBodyFluFru(1, 0, 0,  0, -1, 0,  0, 0, 1);
 // correct for every convention pair in this file, including the ones (like
 // NED_FRD) where a hand-multiplied quaternion shortcut also happens to
 // exist.
+/**
+ * @brief Change an attitude quaternion between world and body axis frames.
+ * @param q Source attitude quaternion.
+ * @param worldC World-frame axis conversion matrix.
+ * @param bodyC Body-frame axis conversion matrix.
+ * @return The attitude quaternion in the target convention.
+ */
 gz::math::Quaterniond quatChangeFrame(
     const gz::math::Quaterniond& q,
     const gz::math::Matrix3d& worldC,
@@ -84,6 +93,13 @@ gz::math::Quaterniond quatChangeFrame(
     return q_new;
 }
 
+/**
+ * @brief Change the position and attitude of a pose between conventions.
+ * @param pose Source pose.
+ * @param worldC World-frame axis conversion matrix.
+ * @param bodyC Body-frame axis conversion matrix.
+ * @return The pose in the target convention.
+ */
 gz::math::Pose3d poseChangeFrame(
     const gz::math::Pose3d& pose,
     const gz::math::Matrix3d& worldC,
@@ -96,6 +112,9 @@ gz::math::Pose3d poseChangeFrame(
 
 // Ordinary body-frame vector (e.g. linear velocity): just the relabeling,
 // no extra sign.
+/**
+ * @brief Relabel an ordinary vector from FLU to the target body frame.
+ */
 inline gz::math::Vector3d vecBodyChangeFrame(
     const gz::math::Vector3d& v, const gz::math::Matrix3d& bodyC)
 {
@@ -107,6 +126,9 @@ inline gz::math::Vector3d vecBodyChangeFrame(
 // handedness. For kBodyFluFrd (det=+1) this is a no-op; for kBodyFluFul and
 // kBodyFluFru (det=-1 each) it is not, which is why angular velocity and
 // linear velocity need separate helpers even though they look similar.
+/**
+ * @brief Relabel a body-frame pseudovector, including handedness correction.
+ */
 inline gz::math::Vector3d pseudoVecBodyChangeFrame(
     const gz::math::Vector3d& v, const gz::math::Matrix3d& bodyC)
 {
@@ -120,6 +142,14 @@ inline gz::math::Vector3d pseudoVecBodyChangeFrame(
 // vehicle's own attitude rotation to get the velocity in FLU body-frame
 // components, THEN relabel those FLU components into the target's body
 // axes.
+/**
+ * @brief Convert a world-frame velocity to the target body frame.
+ * @param v_world_enu Velocity in the ENU world frame.
+ * @param q_enu_attitude Vehicle attitude in the ENU_FLU convention.
+ * @param bodyC Body-frame axis conversion matrix.
+ * @param isPseudoVector Whether the velocity is an angular pseudovector.
+ * @return The velocity in the target body frame.
+ */
 gz::math::Vector3d worldVelToTargetBody(
     const gz::math::Vector3d& v_world_enu,
     const gz::math::Quaterniond& q_enu_attitude,
@@ -136,6 +166,14 @@ gz::math::Vector3d worldVelToTargetBody(
 // (e.g. xdyn's FRD uvw/pqr) needs relabeling into FLU body-frame
 // components, then rotating by the (already-computed) ENU attitude to
 // land in ENU_FLU's world-frame velocity storage.
+/**
+ * @brief Convert a target body-frame velocity to the ENU world frame.
+ * @param v_body_target Velocity in the target body frame.
+ * @param q_enu_attitude Vehicle attitude in the ENU_FLU convention.
+ * @param bodyC Body-frame axis conversion matrix.
+ * @param isPseudoVector Whether the velocity is an angular pseudovector.
+ * @return The velocity in the ENU world frame.
+ */
 gz::math::Vector3d targetBodyVelToWorld(
     const gz::math::Vector3d& v_body_target,
     const gz::math::Quaterniond& q_enu_attitude,
@@ -165,11 +203,13 @@ gz::math::Vector3d targetBodyVelToWorld(
 static const gz::math::Quaterniond q_ned_to_enu(0.0, 0.5 * sqrt(2.0), 0.5 * sqrt(2.0), 0.0);
 static const gz::math::Quaterniond q_flu_to_frd(0.0, 1.0, 0.0, 0.0);
 
+/** @brief Convert an attitude quaternion from NED_FRD to ENU_FLU. */
 gz::math::Quaterniond quatNedToEnu(const gz::math::Quaterniond& q_ned)
 {
     return q_ned_to_enu * q_ned * q_flu_to_frd;
 }
 
+/** @brief Convert an attitude quaternion from ENU_FLU to NED_FRD. */
 gz::math::Quaterniond quatEnuToNed(const gz::math::Quaterniond& q_enu)
 {
     return q_ned_to_enu * q_enu * q_flu_to_frd;
@@ -177,7 +217,8 @@ gz::math::Quaterniond quatEnuToNed(const gz::math::Quaterniond& q_enu)
 
 // ---------------------------------------------------------------------------
 
-VesselInformation VesselInformation::to_xdyn() const //< enu/flu -> ned/frd
+/** @brief Convert this GAZEBO state to xdyn's NED_FRD convention. */
+VesselInformation VesselInformation::to_xdyn() const
 {
     if (convention != Convention::GAZEBO)
         throw std::runtime_error("Invalid convention");
@@ -198,7 +239,8 @@ VesselInformation VesselInformation::to_xdyn() const //< enu/flu -> ned/frd
     return v;
 }
 
-VesselInformation VesselInformation::to_unity() const //< enu/flu -> eun/ful
+/** @brief Convert this GAZEBO state to Unity's EUN_FUL convention. */
+VesselInformation VesselInformation::to_unity() const
 {
     if (convention != Convention::GAZEBO)
         throw std::runtime_error("Invalid convention");
@@ -216,7 +258,8 @@ VesselInformation VesselInformation::to_unity() const //< enu/flu -> eun/ful
     return v;
 }
 
-VesselInformation VesselInformation::to_unreal() const //< enu/flu -> neu/fru
+/** @brief Convert this GAZEBO state to Unreal's NEU_FRU convention. */
+VesselInformation VesselInformation::to_unreal() const
 {
     if (convention != Convention::GAZEBO)
         throw std::runtime_error("Invalid convention");
@@ -237,7 +280,10 @@ VesselInformation VesselInformation::to_unreal() const //< enu/flu -> neu/fru
     return v;
 }
 
-VesselInformation VesselInformation::from_xdyn( //< ned/frd -> enu/flu
+/**
+ * @brief Convert xdyn NED_FRD data to a GAZEBO state.
+ */
+VesselInformation VesselInformation::from_xdyn(
         const gz::math::Vector3d& ned_xyz,
         const gz::math::Quaterniond& ned_quaternion,
         const gz::math::Vector3d& ned_uvw,   // body(FRD)-frame linear velocity
@@ -257,12 +303,4 @@ VesselInformation VesselInformation::from_xdyn( //< ned/frd -> enu/flu
     s.ang_vel = targetBodyVelToWorld(ned_pqr, s.pose.Rot(), kBodyFluFrd, /*isPseudoVector=*/true);
 
     return s;
-}
-
-
-void demo()
-{
-    std::cout << "kWorldEnuNed"<< kWorldEnuNed << std::endl;
-    std::cout << "kWorldEnuNed"<< kWorldEnuNed(1,0) << std::endl;
-    std::cout << kWorldEnuNed.Determinant() << std::endl;
 }

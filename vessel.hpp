@@ -9,38 +9,77 @@
 
 #include <ostream>
 
+/**
+ * @brief Coordinate conventions supported by VesselInformation.
+ */
 enum class Convention : int {
     UNKNOWN = 0,
-    GAZEBO, //< LOTUSim ROS2 Gazebo, with global ENU_FLU world and body axes
-    ENU_FLU, //< East-North-Up world, Forward-Left-Up body
-    NED_FRD, //< xdyn
-    EUN_FUL, //< Unity3D
-    NEU_FRU, //< Unreal 3D
+    GAZEBO, //< Gazebo convention: ENU world and FLU body axes.
+    ENU_FLU, //< East-North-Up world and Forward-Left-Up body axes.
+    NED_FRD, //< North-East-Down world and Forward-Right-Down body axes.
+    EUN_FUL, //< Unity convention.
+    NEU_FRU, //< Unreal convention.
     ERROR
 };
 
+/**
+ * @brief Vessel state expressed in a supported coordinate convention.
+ *
+ * In the GAZEBO/ENU_FLU convention, velocities are stored in the world
+ * frame. In all other conventions, velocities are stored in the body frame.
+ */
 struct VesselInformation {
-    Convention convention;
-    double time;
-    gz::sim::Entity entity;
-    gz::math::Pose3d pose; //< Position and attitude
-    gz::math::Vector3d lin_vel; //< ENU_FLU: world frame. All other conventions: body frame.
-    gz::math::Vector3d ang_vel; //< ENU_FLU: world frame. All other conventions: body frame.
+    Convention convention; ///< Coordinate convention of this state.
+    double time; ///< Simulation time associated with this state.
+    gz::sim::Entity entity; ///< Gazebo entity associated with this vessel.
+    gz::math::Pose3d pose; ///< Position and attitude.
+    gz::math::Vector3d lin_vel; ///< Linear velocity in the applicable frame.
+    gz::math::Vector3d ang_vel; ///< Angular velocity in the applicable frame.
+
+    /** @brief Construct an empty state in the GAZEBO convention. */
     VesselInformation(): convention(Convention::GAZEBO), time(0.0), pose(), lin_vel(), ang_vel(){};
+
+    /**
+     * @brief Construct a vessel state with explicit values.
+     * @param conv Coordinate convention.
+     * @param t Simulation time.
+     * @param p Position and attitude.
+     * @param lv Linear velocity.
+     * @param av Angular velocity.
+     */
     VesselInformation(Convention conv, double t, const gz::math::Pose3d& p, const gz::math::Vector3d& lv, const gz::math::Vector3d& av):
         convention(conv), time(t), pose(p), lin_vel(lv), ang_vel(av) {};
-    VesselInformation to_xdyn() const;   //< enu/flu -> ned/frd
-    VesselInformation to_unity() const;  //< enu/flu -> eun/ful
-    VesselInformation to_unreal() const; //< enu/flu -> neu/fru
+
+    /** @brief Convert a GAZEBO state to the xdyn NED_FRD convention. */
+    VesselInformation to_xdyn() const;
+
+    /** @brief Convert a GAZEBO state to the Unity EUN_FUL convention. */
+    VesselInformation to_unity() const;
+
+    /** @brief Convert a GAZEBO state to the Unreal NEU_FRU convention. */
+    VesselInformation to_unreal() const;
+
+    /**
+     * @brief Convert xdyn data from NED_FRD to the GAZEBO convention.
+     * @param xyz Position in the NED world frame.
+     * @param quaternion Attitude in the NED_FRD convention.
+     * @param uvw Linear velocity in the FRD body frame.
+     * @param pqr Angular velocity in the FRD body frame.
+     * @return The converted vessel state in the GAZEBO convention.
+     */
     static VesselInformation from_xdyn(
         const gz::math::Vector3d& xyz,
         const gz::math::Quaterniond& quaternion,
         const gz::math::Vector3d& uvw,
-        const gz::math::Vector3d& pqr); //< ned/frd -> enu/flu
+        const gz::math::Vector3d& pqr);
 };
 
+/**
+ * @brief Stream a coordinate convention name.
+ * @param os Output stream.
+ * @param s Convention to print.
+ * @return The output stream.
+ */
 std::ostream& operator<<(std::ostream& os, Convention s);
 
-
-void demo();
 #endif
