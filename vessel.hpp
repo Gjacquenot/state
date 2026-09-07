@@ -14,7 +14,7 @@
  */
 enum class Convention : int {
     UNKNOWN = 0,
-    GAZEBO, //< Gazebo convention: ENU world and FLU body axes.
+    GAZEBO, //< Gazebo convention: ENU world and FLU body axes, with world-frame velocities.
     ENU_FLU, //< East-North-Up world and Forward-Left-Up body axes.
     NED_FRD, //< North-East-Down world and Forward-Right-Down body axes.
     EUN_FUL, //< Unity convention.
