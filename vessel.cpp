@@ -10,6 +10,7 @@ std::ostream& operator<<(std::ostream& os, Convention s)
 {
     switch (s) {
         case Convention::UNKNOWN:  return os << "Unknown";
+        case Convention::GAZEBO:   return os << "GAZEBO";
         case Convention::ENU_FLU:  return os << "ENU_FLU";
         case Convention::NED_FRD:  return os << "NED_FRD";
         case Convention::EUN_FUL:  return os << "EUN_FUL";
