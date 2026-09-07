@@ -143,6 +143,34 @@ TEST_F(VesselInformationTest, ConvertsFromXdynRandom)
             gz::math::Vector3d(ned_pqr.X(), -ned_pqr.Y(), -ned_pqr.Z())));
 }
 
+TEST_F(VesselInformationTest, FromXdynThenToXdynIsIdentity)
+{
+	const gz::math::Vector3d ned_xyz(20.0, -10.0, 30.0);
+	gz::math::Quaterniond ned_quat(0.8, 0.2, -0.3, 0.4);
+	ned_quat.Normalize();
+	const gz::math::Vector3d ned_uvw(1.5, -2.5, 3.5);
+	const gz::math::Vector3d ned_pqr(-4.5, 5.5, -6.5);
+
+	const VesselInformation gazebo = VesselInformation::from_xdyn(
+		ned_xyz, ned_quat, ned_uvw, ned_pqr);
+	const VesselInformation round_trip = gazebo.to_xdyn();
+
+	EXPECT_EQ(round_trip.convention, Convention::NED_FRD);
+	EXPECT_NEAR(round_trip.pose.Pos().X(), ned_xyz.X(), 1e-12);
+	EXPECT_NEAR(round_trip.pose.Pos().Y(), ned_xyz.Y(), 1e-12);
+	EXPECT_NEAR(round_trip.pose.Pos().Z(), ned_xyz.Z(), 1e-12);
+	EXPECT_NEAR(round_trip.pose.Rot().W(), ned_quat.W(), 1e-12);
+	EXPECT_NEAR(round_trip.pose.Rot().X(), ned_quat.X(), 1e-12);
+	EXPECT_NEAR(round_trip.pose.Rot().Y(), ned_quat.Y(), 1e-12);
+	EXPECT_NEAR(round_trip.pose.Rot().Z(), ned_quat.Z(), 1e-12);
+	EXPECT_NEAR(round_trip.lin_vel.X(), ned_uvw.X(), 1e-12);
+	EXPECT_NEAR(round_trip.lin_vel.Y(), ned_uvw.Y(), 1e-12);
+	EXPECT_NEAR(round_trip.lin_vel.Z(), ned_uvw.Z(), 1e-12);
+	EXPECT_NEAR(round_trip.ang_vel.X(), ned_pqr.X(), 1e-12);
+	EXPECT_NEAR(round_trip.ang_vel.Y(), ned_pqr.Y(), 1e-12);
+	EXPECT_NEAR(round_trip.ang_vel.Z(), ned_pqr.Z(), 1e-12);
+}
+
 TEST_F(VesselInformationTest, ConvertsToXdynRandom)
 {
 	const gz::math::Vector3d xyz = RandomVector3d();
