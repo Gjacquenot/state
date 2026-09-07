@@ -1,6 +1,7 @@
 #include "vessel.hpp"
 #include <gz/math/Rand.hh>
 #include <gtest/gtest.h>
+#include <cmath>
 #include <stdexcept>
 
 // Returns a random Vector3d with each component drawn uniformly from [min, max].
@@ -24,14 +25,14 @@ gz::math::Quaterniond RandomQuaternion()
     const double sqrt1MinusU1 = std::sqrt(1.0 - u1);
     const double sqrtU1 = std::sqrt(u1);
 
-    return gz::math::Quaterniond(
+    gz::math::Quaterniond res(
         sqrt1MinusU1 * std::sin(u2),   // w
         sqrt1MinusU1 * std::cos(u2),   // x
         sqrtU1 * std::sin(u3),         // y
         sqrtU1 * std::cos(u3));        // z
+    res.Normalize();
+    return res;
 }
-
-
 
 class VesselInformationTest : public ::testing::Test {
 protected:
@@ -56,6 +57,7 @@ TEST_F(VesselInformationTest, HasExpectedDefaultValues)
 	EXPECT_EQ(default_vessel.convention, Convention::GAZEBO);
 	EXPECT_DOUBLE_EQ(default_vessel.time, 0.0);
 	EXPECT_EQ(default_vessel.pose, gz::math::Pose3d());
+	EXPECT_EQ(default_vessel.pose.Rot(), gz::math::Quaterniond::Identity);
 	EXPECT_EQ(default_vessel.lin_vel, gz::math::Vector3d::Zero);
 	EXPECT_EQ(default_vessel.ang_vel, gz::math::Vector3d::Zero);
 }
@@ -67,6 +69,10 @@ TEST_F(VesselInformationTest, ConvertsToXdyn)
 	EXPECT_EQ(converted.convention, Convention::NED_FRD);
 	EXPECT_DOUBLE_EQ(converted.time, vessel.time);
 	EXPECT_EQ(converted.pose.Pos(), gz::math::Vector3d(20.0, 10.0, -30.0));
+	EXPECT_EQ(converted.pose.Rot(),
+		gz::math::Quaterniond(0, 1.0 / std::sqrt(2.0),
+			1.0 / std::sqrt(2.0), 0) *
+		gz::math::Quaterniond(0, 1, 0, 0));
 	EXPECT_EQ(converted.lin_vel, gz::math::Vector3d(1.0, -2.0, -3.0));
 	EXPECT_EQ(converted.ang_vel, gz::math::Vector3d(4.0, -5.0, -6.0));
 }
@@ -78,6 +84,7 @@ TEST_F(VesselInformationTest, ConvertsToUnity)
 	EXPECT_EQ(converted.convention, Convention::EUN_FUL);
 	EXPECT_DOUBLE_EQ(converted.time, vessel.time);
 	EXPECT_EQ(converted.pose.Pos(), gz::math::Vector3d(10.0, 30.0, 20.0));
+	EXPECT_EQ(converted.pose.Rot(), gz::math::Quaterniond::Identity);
 	EXPECT_EQ(converted.lin_vel, gz::math::Vector3d(1.0, 3.0, 2.0));
 	EXPECT_EQ(converted.ang_vel, gz::math::Vector3d(-4.0, -6.0, -5.0));
 }
@@ -89,6 +96,8 @@ TEST_F(VesselInformationTest, ConvertsToUnreal)
 	EXPECT_EQ(converted.convention, Convention::NEU_FRU);
 	EXPECT_DOUBLE_EQ(converted.time, vessel.time);
 	EXPECT_EQ(converted.pose.Pos(), gz::math::Vector3d(20.0, 10.0, 30.0));
+	EXPECT_EQ(converted.pose.Rot(),
+		gz::math::Quaterniond(std::sqrt(0.5), 0, 0, std::sqrt(0.5)));
 	EXPECT_EQ(converted.lin_vel, gz::math::Vector3d(1.0, -2.0, 3.0));
 	EXPECT_EQ(converted.ang_vel, gz::math::Vector3d(-4.0, 5.0, -6.0));
 }
@@ -153,6 +162,88 @@ TEST_F(VesselInformationTest, ConvertsToXdynRandom)
     const auto body_pqr = quat.RotateVectorReverse(pqr);
     EXPECT_EQ(converted.ang_vel,
             gz::math::Vector3d(body_pqr.X(), -body_pqr.Y(), -body_pqr.Z()));
+}
+
+TEST_F(VesselInformationTest, ConvertsToUnityRandom)
+{
+	const gz::math::Vector3d xyz = RandomVector3d();
+	const gz::math::Quaterniond quat = RandomQuaternion();
+	const gz::math::Vector3d uvw = RandomVector3d();
+	const gz::math::Vector3d pqr = RandomVector3d();
+	const VesselInformation state = VesselInformation(Convention::GAZEBO, 0.0, gz::math::Pose3d(xyz, quat), uvw, pqr);
+	const VesselInformation converted = state.to_unity();
+    const gz::math::Quaterniond expected_quaternion = gz::math::Quaterniond(quat.W(), -quat.X(), -quat.Z(), -quat.Y());
+	EXPECT_EQ(converted.convention, Convention::EUN_FUL);
+    EXPECT_EQ(converted.pose.Pos(),
+            gz::math::Vector3d(xyz.X(), xyz.Z(), xyz.Y()));
+	EXPECT_EQ(converted.pose.Rot(), expected_quaternion);
+    const auto body_uvw = quat.RotateVectorReverse(uvw);
+    EXPECT_EQ(converted.lin_vel,
+        gz::math::Vector3d(body_uvw.X(), body_uvw.Z(), body_uvw.Y()));
+    const auto body_pqr = quat.RotateVectorReverse(pqr);
+    EXPECT_EQ(converted.ang_vel,
+        gz::math::Vector3d(-body_pqr.X(), -body_pqr.Z(), -body_pqr.Y()));
+}
+
+/*
+TEST_F(VesselInformationTest, ConvertsToUnRealRandom)
+{
+	const gz::math::Vector3d xyz = RandomVector3d();
+	const gz::math::Quaterniond quat = RandomQuaternion();
+	const gz::math::Vector3d uvw = RandomVector3d();
+	const gz::math::Vector3d pqr = RandomVector3d();
+	const VesselInformation state = VesselInformation(Convention::GAZEBO, 0.0, gz::math::Pose3d(xyz, quat), uvw, pqr);
+	const VesselInformation converted = state.to_unreal();
+    const gz::math::Quaterniond expected_quaternion = gz::math::Quaterniond(quat.W(), -quat.Y(), -quat.X(), -quat.Z());
+	EXPECT_EQ(converted.convention, Convention::NEU_FRU);
+    EXPECT_EQ(converted.pose.Pos(),
+            gz::math::Vector3d(xyz.Y(), xyz.X(), xyz.Z()));
+	EXPECT_EQ(converted.pose.Rot(), expected_quaternion);
+    const auto body_uvw = quat.RotateVectorReverse(uvw);
+    EXPECT_EQ(converted.lin_vel,
+        gz::math::Vector3d(body_uvw.X(), -body_uvw.Y(), +body_uvw.Z()));
+    const auto body_pqr = quat.RotateVectorReverse(pqr);
+    EXPECT_EQ(converted.ang_vel,
+        gz::math::Vector3d(-body_pqr.Y(), -body_pqr.X(), +body_pqr.Z()));
+}
+*/
+
+TEST_F(VesselInformationTest, ConvertsToUnRealRandom)
+{
+    const gz::math::Vector3d xyz = RandomVector3d();
+    const gz::math::Quaterniond quat = RandomQuaternion();
+    const gz::math::Vector3d uvw = RandomVector3d();
+    const gz::math::Vector3d pqr = RandomVector3d();
+    const VesselInformation state = VesselInformation(Convention::GAZEBO, 0.0, gz::math::Pose3d(xyz, quat), uvw, pqr);
+    const VesselInformation converted = state.to_unreal();
+
+    EXPECT_EQ(converted.convention, Convention::NEU_FRU);
+    EXPECT_EQ(converted.pose.Pos(),
+              gz::math::Vector3d(xyz.Y(), xyz.X(), xyz.Z()));
+
+    // NEU_FRU has no quaternion-constant shortcut: the world relabeling
+    // (X<->Y swap) and body relabeling (Left<->Right flip) are different
+    // matrices, and each is individually improper (det = -1), so there's
+    // no single quaternion to hand-multiply on either side. The expected
+    // value has to go through the rotation matrix, same as quatChangeFrame.
+    const gz::math::Matrix3d worldC(0, 1, 0,  1, 0, 0,  0, 0, 1);   // ENU <-> NEU
+    const gz::math::Matrix3d bodyC(1, 0, 0,  0, -1, 0,  0, 0, 1);   // FLU <-> FRU
+    const gz::math::Matrix3d R(quat);
+    gz::math::Quaterniond expected_quaternion(worldC * R * bodyC.Inverse());
+    expected_quaternion.Normalize();
+    EXPECT_EQ(converted.pose.Rot(), expected_quaternion);
+
+    // Linear velocity: ordinary vector, just relabeled (Y flips sign).
+    const auto body_uvw = quat.RotateVectorReverse(uvw);
+    EXPECT_EQ(converted.lin_vel,
+              gz::math::Vector3d(body_uvw.X(), -body_uvw.Y(), body_uvw.Z()));
+
+    // Angular velocity: pseudovector, so it picks up an EXTRA det(bodyC) = -1
+    // global sign flip on top of the relabeling -- all three components
+    // flip sign, they don't get rearranged.
+    const auto body_pqr = quat.RotateVectorReverse(pqr);
+    EXPECT_EQ(converted.ang_vel,
+              gz::math::Vector3d(-body_pqr.X(), body_pqr.Y(), -body_pqr.Z()));
 }
 
 TEST_F(VesselInformationTest, RejectsConversionsFromOtherConventions)
