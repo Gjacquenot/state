@@ -74,7 +74,7 @@ gz::math::Pose3d poseChangeFrame(
     const gz::math::Matrix3d& bodyC)
 {
     return gz::math::Pose3d(
-        worldC * pose.Pos(),
+        worldC.Inverse() * pose.Pos(),
         quatChangeFrame(pose.Rot(), worldC, bodyC));
 }
 
