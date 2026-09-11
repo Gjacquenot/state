@@ -1,14 +1,21 @@
-all: build run
+all: docker_build build compile test
+
+docker_build:
+	docker build -f Dockerfile -t conversion .
 
 build:
-	docker build -f Dockerfile -t conversion .
+	docker run -u $(shell id -u):$(shell id -g) --rm -v $(shell pwd):/src -w /src conversion \
+		/bin/bash -c "cmake -B build -S . -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$(nproc)"
 .PHONY: build
 
-run:
-	@echo hello
-	docker run conversion
-	docker run --entrypoint /bin/bash conversion -c "/usr/local/bin/vessel_test"
-.PHONY: run
+compile:
+	docker run -u $(shell id -u):$(shell id -g) --rm -v $(shell pwd):/src -w /src conversion \
+		/bin/bash -c "make -C build"
+
+test:
+	docker run -u $(shell id -u):$(shell id -g) --rm -v $(shell pwd):/src -w /src conversion \
+		/bin/bash -c "build/vessel_test"
+.PHONY: test
 
 clean:
 	@rm -rf build

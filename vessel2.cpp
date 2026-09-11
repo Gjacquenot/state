@@ -35,8 +35,6 @@ static const gz::math::Matrix3d kBodyFluFul(1, 0, 0,  0, 0, 1,  0, 1, 0);
 // World: ENU (East,North,Up) <-> NEU (North,East,Up): swap X,Y (Unreal)
 static const gz::math::Matrix3d kWorldEnuNeu(0, 1, 0,  1, 0, 0,  0, 0, 1);
 // Body: FLU (Fwd,Left,Up) <-> FRU (Fwd,Right,Up): Left<->Right flip only.
-// NOTE this deliberately does NOT match kWorldEnuNeu's X,Y swap -- see the
-// block comment above.
 static const gz::math::Matrix3d kBodyFluFru(1, 0, 0,  0, -1, 0,  0, 0, 1);
 
 // ---------------------------------------------------------------------------
@@ -55,8 +53,9 @@ gz::math::Quaterniond quatChangeFrame(
     const gz::math::Matrix3d& bodyC)
 {
     const gz::math::Matrix3d R(q);
-    const gz::math::Matrix3d R_new = worldC.Inverse() * R * bodyC;
-    gz::math::Quaterniond q_new(R_new);  
+    // const gz::math::Matrix3d R_new = worldC.Inverse() * R * bodyC;  // worldC is self-inverse, so no need to call Inverse()
+    const gz::math::Matrix3d R_new = worldC * R * bodyC;
+    gz::math::Quaterniond q_new(R_new);
     q_new.Normalize();
     return q_new;
 }
@@ -74,42 +73,41 @@ gz::math::Pose3d poseChangeFrame(
     const gz::math::Matrix3d& bodyC)
 {
     return gz::math::Pose3d(
-        worldC.Inverse() * pose.Pos(),
+        // worldC.Inverse() * pose.Pos(), // worldC is self-inverse, so no need to call Inverse()
+        worldC * pose.Pos(),
         quatChangeFrame(pose.Rot(), worldC, bodyC));
 }
 
-// Ordinary body-frame vector (e.g. linear velocity): just the relabeling,
-// no extra sign.
 /**
- * @brief Relabel an ordinary vector from FLU to the target body frame.
+ * @brief Relabel an ordinary vector from source to the target body frame.
+ * @note Ordinary body-frame vector (e.g. linear velocity): just the relabeling,
+ * no extra sign.
+ * @param v Vector in the body frame.
+ * @param bodyC Body-frame axis conversion matrix.
+ * @return The vector in the target body frame.
  */
 inline gz::math::Vector3d vecBodyChangeFrame(
     const gz::math::Vector3d& v, const gz::math::Matrix3d& bodyC)
 {
-    return bodyC.Inverse() * v;
+    // return bodyC.Inverse() * v;  // bodyC is self-inverse, so no need to call Inverse()
+    return bodyC * v;
 }
 
-// Body-frame pseudovector (e.g. angular velocity): picks up an extra sign
-// of det(bodyC) relative to an ordinary vector whenever bodyC flips
-// handedness. For kBodyFluFrd (det=+1) this is a no-op; for kBodyFluFul and
-// kBodyFluFru (det=-1 each) it is not, which is why angular velocity and
-// linear velocity need separate helpers even though they look similar.
 /**
  * @brief Relabel a body-frame pseudovector, including handedness correction.
- */
-inline gz::math::Vector3d pseudoVecBodyChangeFrame(
+ * @note Body-frame pseudovector (e.g. angular velocity): picks up an extra sign
+ * of det(bodyC) relative to an ordinary vector whenever bodyC flips
+ * handedness. For kBodyFluFrd (det=+1) this is a no-op; for kBodyFluFul and
+ * kBodyFluFru (det=-1 each) it is not, which is why angular velocity and
+ * linear velocity need separate helpers even though they look similar.
+*/
+ inline gz::math::Vector3d pseudoVecBodyChangeFrame(
     const gz::math::Vector3d& v, const gz::math::Matrix3d& bodyC)
 {
-    return bodyC.Determinant() * (bodyC.Inverse() * v);
+    // return bodyC.Determinant() * (bodyC.Inverse() * v);
+    return bodyC.Determinant() * (bodyC * v);
 }
 
-// this->lin_vel / this->ang_vel (ENU_FLU convention) are stored in the
-// ENU ground (WORLD) frame. Every other convention in this file stores
-// body-frame velocities. Converting world -> body-of-target therefore
-// needs an extra step that pure axis relabeling doesn't: first undo the
-// vehicle's own attitude rotation to get the velocity in FLU body-frame
-// components, THEN relabel those FLU components into the target's body
-// axes.
 /**
  * @brief Convert a world-frame velocity to the target body frame.
  * @param v_world_enu Velocity in the ENU world frame.
@@ -117,6 +115,13 @@ inline gz::math::Vector3d pseudoVecBodyChangeFrame(
  * @param bodyC Body-frame axis conversion matrix.
  * @param isPseudoVector Whether the velocity is an angular pseudovector.
  * @return The velocity in the target body frame.
+ * @note this->lin_vel / this->ang_vel (ENU_FLU convention) are stored in the
+ * ENU ground (WORLD) frame. Every other convention in this file stores
+ * body-frame velocities. Converting world -> body-of-target therefore
+ * needs an extra step that pure axis relabeling doesn't: first undo the
+ * vehicle's own attitude rotation to get the velocity in FLU body-frame
+ * components, THEN relabel those FLU components into the target's body
+ * axes.
  */
 gz::math::Vector3d worldVelToTargetBody(
     const gz::math::Vector3d& v_world_enu,
@@ -130,10 +135,6 @@ gz::math::Vector3d worldVelToTargetBody(
                           : vecBodyChangeFrame(v_body_flu, bodyC);
 }
 
-// Inverse of the above: a body-frame velocity in some target convention
-// (e.g. xdyn's FRD uvw/pqr) needs relabeling into FLU body-frame
-// components, then rotating by the (already-computed) ENU attitude to
-// land in ENU_FLU's world-frame velocity storage.
 /**
  * @brief Convert a target body-frame velocity to the ENU world frame.
  * @param v_body_target Velocity in the target body frame.
@@ -141,6 +142,10 @@ gz::math::Vector3d worldVelToTargetBody(
  * @param bodyC Body-frame axis conversion matrix.
  * @param isPseudoVector Whether the velocity is an angular pseudovector.
  * @return The velocity in the ENU world frame.
+ * @note Inverse of the above: a body-frame velocity in some target convention
+ * (e.g. xdyn's FRD uvw/pqr) needs relabeling into FLU body-frame
+ * components, then rotating by the (already-computed) ENU attitude to
+ * land in ENU_FLU's world-frame velocity storage.
  */
 gz::math::Vector3d targetBodyVelToWorld(
     const gz::math::Vector3d& v_body_target,
@@ -148,31 +153,11 @@ gz::math::Vector3d targetBodyVelToWorld(
     const gz::math::Matrix3d& bodyC,
     bool isPseudoVector)
 {
-    // bodyC is self-inverse, so the same matrix relabels target->FLU.
     const gz::math::Vector3d v_body_flu =
         isPseudoVector ? pseudoVecBodyChangeFrame(v_body_target, bodyC)
                        : vecBodyChangeFrame(v_body_target, bodyC);
     return q_enu_attitude.RotateVector(v_body_flu);
 }
-
-static const gz::math::Quaterniond q_ned_to_enu(0.0, 0.5 * sqrt(2.0), 0.5 * sqrt(2.0), 0.0);
-static const gz::math::Quaterniond q_flu_to_frd(0.0, 1.0, 0.0, 0.0);
-static const gz::math::Quaterniond q_enu_to_ned(0.0, 0.5 * sqrt(2.0), 0.5 * sqrt(2.0), 0.0);
-static const gz::math::Quaterniond q_frd_to_flu(0.0, 1.0, 0.0, 0.0);
-
-/** @brief Convert an attitude quaternion from NED_FRD to ENU_FLU. */
-gz::math::Quaterniond quatNedToEnu(const gz::math::Quaterniond& q_ned_frd)
-{
-    return q_enu_to_ned * q_ned_frd * q_frd_to_flu;
-}
-
-/** @brief Convert an attitude quaternion from ENU_FLU to NED_FRD. */
-gz::math::Quaterniond quatEnuToNed(const gz::math::Quaterniond& q_enu_flu)
-{
-    return q_ned_to_enu * q_enu_flu * q_flu_to_frd;
-}
-
-// ---------------------------------------------------------------------------
 
 /** @brief Convert this GAZEBO state to xdyn's NED_FRD convention. */
 VesselInformation VesselInformation::to_xdyn() const
@@ -184,19 +169,16 @@ VesselInformation VesselInformation::to_xdyn() const
     v.convention = Convention::NED_FRD;
     v.time = time;
     v.entity = entity;
-
-    v.pose = gz::math::Pose3d(
-        kWorldEnuNed * pose.Pos(),
-        quatEnuToNed(pose.Rot()));
-
-    // Stored velocities are ENU_FLU world-frame; xdyn wants body(FRD)-frame.
+    v.pose = poseChangeFrame(pose, kWorldEnuNed, kBodyFluFrd);
     v.lin_vel = worldVelToTargetBody(lin_vel, pose.Rot(), kBodyFluFrd, /*isPseudoVector=*/false);
     v.ang_vel = worldVelToTargetBody(ang_vel, pose.Rot(), kBodyFluFrd, /*isPseudoVector=*/true);
 
     return v;
 }
 
-/** @brief Convert this GAZEBO state to Unity's EUN_FUL convention. */
+/**
+ * @brief Convert this GAZEBO state to Unity's EUN_FUL convention.
+ */
 VesselInformation VesselInformation::to_unity() const
 {
     if (convention != Convention::GAZEBO)
@@ -206,16 +188,15 @@ VesselInformation VesselInformation::to_unity() const
     v.convention = Convention::EUN_FUL;
     v.time = time;
     v.entity = entity;
-
     v.pose = poseChangeFrame(pose, kWorldEnuEun, kBodyFluFul);
-
     v.lin_vel = worldVelToTargetBody(lin_vel, pose.Rot(), kBodyFluFul, /*isPseudoVector=*/false);
     v.ang_vel = worldVelToTargetBody(ang_vel, pose.Rot(), kBodyFluFul, /*isPseudoVector=*/true);
-
     return v;
 }
 
-/** @brief Convert this GAZEBO state to Unreal's NEU_FRU convention. */
+/**
+ * @brief Convert this GAZEBO state to Unreal's NEU_FRU convention.
+ */
 VesselInformation VesselInformation::to_unreal() const
 {
     if (convention != Convention::GAZEBO)
@@ -225,15 +206,9 @@ VesselInformation VesselInformation::to_unreal() const
     v.convention = Convention::NEU_FRU;
     v.time = time;
     v.entity = entity;
-
-    // No quaternion-constant shortcut here (see block comment above
-    // kBodyFluFru): worldC and bodyC differ, so this must go through
-    // quatChangeFrame's rotation-matrix path.
     v.pose = poseChangeFrame(pose, kWorldEnuNeu, kBodyFluFru);
-
     v.lin_vel = worldVelToTargetBody(lin_vel, pose.Rot(), kBodyFluFru, /*isPseudoVector=*/false);
     v.ang_vel = worldVelToTargetBody(ang_vel, pose.Rot(), kBodyFluFru, /*isPseudoVector=*/true);
-
     return v;
 }
 
@@ -248,14 +223,7 @@ VesselInformation VesselInformation::from_xdyn(
 {
     VesselInformation s;
     s.convention = Convention::GAZEBO;
-
-    s.pose = gz::math::Pose3d(
-        kWorldEnuNed * ned_xyz,     
-        quatNedToEnu(ned_quaternion));
-
-    // xdyn's uvw/pqr are body(FRD)-frame; ENU_FLU stores world-frame
-    // velocities, so relabel FRD->FLU, then rotate into the world frame
-    // using the attitude we just computed (s.pose.Rot() is now ENU_FLU's).
+    s.pose = poseChangeFrame(gz::math::Pose3d(ned_xyz, ned_quaternion), kWorldEnuNed, kBodyFluFrd);
     s.lin_vel = targetBodyVelToWorld(ned_uvw, s.pose.Rot(), kBodyFluFrd, /*isPseudoVector=*/false);
     s.ang_vel = targetBodyVelToWorld(ned_pqr, s.pose.Rot(), kBodyFluFrd, /*isPseudoVector=*/true);
 

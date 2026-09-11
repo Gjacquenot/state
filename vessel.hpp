@@ -1,7 +1,6 @@
 #ifndef VESSEL_HPP
 #define VESSEL_HPP
 
-#include <gz/math/Matrix3.hh>
 #include <gz/math/Pose3.hh>
 #include <gz/math/Quaternion.hh>
 #include <gz/math/Vector3.hh>
@@ -37,7 +36,7 @@ struct VesselInformation {
     gz::math::Vector3d ang_vel; ///< Angular velocity in the applicable frame.
 
     /** @brief Construct an empty state in the GAZEBO convention. */
-    VesselInformation(): convention(Convention::GAZEBO), time(0.0), pose(), lin_vel(), ang_vel(){};
+    VesselInformation(): convention(Convention::GAZEBO), time(0.0), entity(), pose(), lin_vel(), ang_vel(){};
 
     /**
      * @brief Construct a vessel state with explicit values.
