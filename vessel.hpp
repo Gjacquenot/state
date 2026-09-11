@@ -1,6 +1,36 @@
 #ifndef VESSEL_HPP
 #define VESSEL_HPP
 
+/**
+ * @brief Defines the vessel state representation and coordinate-convention conversion utilities.
+ *
+ * This file provides a unified data structure for representing a vessel's
+ * pose and motion in a simulation environment, along with logic to convert
+ * that state between different coordinate conventions used by different
+ * robotics and game-engine frameworks.
+ *
+ * The central type, VesselInformation, stores:
+ * - the active coordinate convention
+ * - simulation time
+ * - the associated Gazebo entity
+ * - position and orientation as a pose
+ * - linear velocity
+ * - angular velocity
+ *
+ * Supported conventions include Gazebo/ENU_FLU, NED_FRD, EUN_FUL, and
+ * NEU_FRU. The class exposes conversion methods for transforming states
+ * from the internal Gazebo convention into external formats such as xDyn,
+ * Unity, and Unreal, as well as a factory method for converting xDyn data
+ * back into the Gazebo representation.
+ *
+ * The implementation handles the subtle differences between world-frame and
+ * body-frame velocity representations, as well as quaternion and axis
+ * re-labeling needed to preserve correctness across conventions.
+ *
+ * @note Velocities are stored in the world frame for the GAZEBO/ENU_FLU
+ * convention, while other conventions store velocities in the body frame.
+ */
+
 #include <gz/math/Pose3.hh>
 #include <gz/math/Quaternion.hh>
 #include <gz/math/Vector3.hh>
