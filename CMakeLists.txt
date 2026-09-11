@@ -6,10 +6,7 @@ find_package(GTest REQUIRED)
 
 enable_testing()
 
-add_executable(vessel_info main.cpp vessel2.cpp)
-target_link_libraries(vessel_info PRIVATE gz-sim::gz-sim)
-
-add_executable(vessel_test vessel2.cpp vessel_test.cpp)
+add_executable(vessel_test vessel.cpp vessel_test.cpp)
 target_link_libraries(vessel_test PRIVATE gz-sim::gz-sim GTest::gtest_main)
 
 include(GoogleTest)
