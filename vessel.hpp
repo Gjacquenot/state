@@ -101,6 +101,18 @@ struct VesselInformation {
         const gz::math::Quaterniond& quaternion,
         const gz::math::Vector3d& uvw,
         const gz::math::Vector3d& pqr);
+
+    /** @brief Inplace convert a GAZEBO state to the xdyn NED_FRD convention. */
+    void convert_to_xdyn();
+
+    /** @brief Inplace convert a GAZEBO state to the Unity EUN_FUL convention. */
+    void convert_to_unity();
+
+    /** @brief Inplace convert a GAZEBO state to the Unreal NEU_FRU convention. */
+    void convert_to_unreal();
+
+    /** @brief Convert xdyn data from NED_FRD to the GAZEBO convention.*/
+    void convert_from_xdyn();
 };
 
 /**

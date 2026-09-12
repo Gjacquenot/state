@@ -234,6 +234,34 @@ TEST_F(VesselInformationTest, ConvertsToXdynRandom2)
     }
 }
 
+TEST_F(VesselInformationTest, ConvertsToXdynRandom2_Inplace)
+{
+    for (size_t i=0;i<10000;++i)
+    {
+        const gz::math::Vector3d xyz = RandomVector3d();
+        const gz::math::Quaterniond quat = RandomQuaternion();
+        const gz::math::Vector3d uvw = RandomVector3d();
+        const gz::math::Vector3d pqr = RandomVector3d();
+        const VesselInformation state = VesselInformation(Convention::GAZEBO, 0.0, gz::math::Pose3d(xyz, quat), uvw, pqr);
+        VesselInformation converted(state);
+        converted.convert_to_xdyn();
+        const double sign = (quat.W()+quat.Z())/sqrt(2.0)<0.0?-1.0:+1.0;
+        gz::math::Quaterniond expected_quaternion = gz::math::Quaterniond(
+            sign * (quat.W() + quat.Z()) / sqrt(2.0),
+            sign * (quat.X() + quat.Y()) / sqrt(2.0),
+            sign * (quat.X() - quat.Y()) / sqrt(2.0),
+            sign * (quat.W() - quat.Z()) / sqrt(2.0));
+        expected_quaternion.Normalize();
+        EXPECT_EQ(converted.convention, Convention::NED_FRD);
+        EXPECT_EQ(converted.pose.Pos(), gz::math::Vector3d(xyz.Y(), xyz.X(), -xyz.Z()));
+        EXPECT_QUATERNION_NEAR(converted.pose.Rot(), expected_quaternion, 1e-12);
+        const gz::math::Vector3d body_uvw = quat.RotateVectorReverse(uvw);
+        EXPECT_EQ(converted.lin_vel, gz::math::Vector3d(body_uvw.X(), -body_uvw.Y(), -body_uvw.Z()));
+        const gz::math::Vector3d body_pqr = quat.RotateVectorReverse(pqr);
+        EXPECT_EQ(converted.ang_vel, gz::math::Vector3d(body_pqr.X(), -body_pqr.Y(), -body_pqr.Z()));
+    }
+}
+
 TEST_F(VesselInformationTest, ConvertsToUnityRandom)
 {
     const gz::math::Vector3d xyz = RandomVector3d();
@@ -262,6 +290,28 @@ TEST_F(VesselInformationTest, ConvertsToUnityRandom2)
         const gz::math::Vector3d pqr = RandomVector3d();
         const VesselInformation state = VesselInformation(Convention::GAZEBO, 0.0, gz::math::Pose3d(xyz, quat), uvw, pqr);
         const VesselInformation converted = state.to_unity();
+        const gz::math::Quaterniond expected_quaternion = gz::math::Quaterniond(quat.W(), -quat.X(), -quat.Z(), -quat.Y());
+        EXPECT_EQ(converted.convention, Convention::EUN_FUL);
+        EXPECT_EQ(converted.pose.Pos(), gz::math::Vector3d(xyz.X(), xyz.Z(), xyz.Y()));
+        EXPECT_QUATERNION_NEAR(converted.pose.Rot(), expected_quaternion, 1e-12);
+        const gz::math::Vector3d body_uvw = quat.RotateVectorReverse(uvw);
+        EXPECT_EQ(converted.lin_vel, gz::math::Vector3d(body_uvw.X(), body_uvw.Z(), body_uvw.Y()));
+        const gz::math::Vector3d body_pqr = quat.RotateVectorReverse(pqr);
+        EXPECT_EQ(converted.ang_vel, gz::math::Vector3d(-body_pqr.X(), -body_pqr.Z(), -body_pqr.Y()));
+    }
+}
+
+TEST_F(VesselInformationTest, ConvertsToUnityRandom2_Inplace)
+{
+    for (size_t i=0;i<10000;++i)
+    {
+        const gz::math::Vector3d xyz = RandomVector3d();
+        const gz::math::Quaterniond quat = RandomQuaternion();
+        const gz::math::Vector3d uvw = RandomVector3d();
+        const gz::math::Vector3d pqr = RandomVector3d();
+        const VesselInformation state = VesselInformation(Convention::GAZEBO, 0.0, gz::math::Pose3d(xyz, quat), uvw, pqr);
+        VesselInformation converted(state);
+        converted.convert_to_unity();
         const gz::math::Quaterniond expected_quaternion = gz::math::Quaterniond(quat.W(), -quat.X(), -quat.Z(), -quat.Y());
         EXPECT_EQ(converted.convention, Convention::EUN_FUL);
         EXPECT_EQ(converted.pose.Pos(), gz::math::Vector3d(xyz.X(), xyz.Z(), xyz.Y()));
@@ -342,4 +392,32 @@ TEST_F(VesselInformationTest, RejectsConversionsFromOtherConventions)
     EXPECT_THROW(vessel.to_xdyn(), std::runtime_error);
     EXPECT_THROW(vessel.to_unity(), std::runtime_error);
     EXPECT_THROW(vessel.to_unreal(), std::runtime_error);
+}
+
+TEST_F(VesselInformationTest, ConvertsToUnRealRandom2_Inplace)
+{
+    for (size_t i=0;i<10000;++i)
+    {
+        const gz::math::Vector3d xyz = RandomVector3d();
+        const gz::math::Quaterniond quat = RandomQuaternion();
+        const gz::math::Vector3d uvw = RandomVector3d();
+        const gz::math::Vector3d pqr = RandomVector3d();
+        const VesselInformation state = VesselInformation(Convention::GAZEBO, 0.0, gz::math::Pose3d(xyz, quat), uvw, pqr);
+        VesselInformation converted(state);
+        converted.convert_to_unreal();
+        const double sign = (quat.W()+quat.Z())/sqrt(2.0)<0.0?-1.0:+1.0;
+        gz::math::Quaterniond expected_quaternion = gz::math::Quaterniond(
+            +sign * (quat.W() + quat.Z()) / sqrt(2.0),
+            -sign * (quat.X() + quat.Y()) / sqrt(2.0),
+            -sign * (quat.X() - quat.Y()) / sqrt(2.0),
+            +sign * (quat.W() - quat.Z()) / sqrt(2.0));
+        expected_quaternion.Normalize();
+        EXPECT_EQ(converted.convention, Convention::NEU_FRU);
+        EXPECT_EQ(converted.pose.Pos(), gz::math::Vector3d(xyz.Y(), xyz.X(), xyz.Z()));
+        EXPECT_QUATERNION_NEAR(converted.pose.Rot(), expected_quaternion, 1e-12);
+        const gz::math::Vector3d body_uvw = quat.RotateVectorReverse(uvw);
+        EXPECT_EQ(converted.lin_vel, gz::math::Vector3d(body_uvw.X(), -body_uvw.Y(), body_uvw.Z()));
+        const gz::math::Vector3d body_pqr = quat.RotateVectorReverse(pqr);
+        EXPECT_EQ(converted.ang_vel, gz::math::Vector3d(-body_pqr.X(), +body_pqr.Y(), -body_pqr.Z()));
+    }
 }

@@ -229,3 +229,43 @@ VesselInformation VesselInformation::from_xdyn(
 
     return s;
 }
+
+/** @brief Inplace convert a GAZEBO state to the xdyn NED_FRD convention. */
+void VesselInformation::convert_to_xdyn()
+{
+    if (convention != Convention::GAZEBO)
+        throw std::runtime_error("Invalid convention");
+    gz::sim::Entity entity_bck = this->entity;
+    *this = to_xdyn();
+    this->entity = entity_bck;
+}
+
+/** @brief Inplace convert a GAZEBO state to the Unity EUN_FUL convention. */
+void VesselInformation::convert_to_unity()
+{
+    if (convention != Convention::GAZEBO)
+        throw std::runtime_error("Invalid convention");
+    gz::sim::Entity entity_bck = this->entity;
+    *this = to_unity();
+    this->entity = entity_bck;
+}
+
+/** @brief Inplace convert a GAZEBO state to the Unreal NEU_FRU convention. */
+void VesselInformation::convert_to_unreal()
+{
+    if (convention != Convention::GAZEBO)
+        throw std::runtime_error("Invalid convention");
+    gz::sim::Entity entity_bck = this->entity;
+    *this = to_unreal();
+    this->entity = entity_bck;
+}
+
+/** @brief Convert xdyn data from NED_FRD to the GAZEBO convention.*/
+void VesselInformation::convert_from_xdyn()
+{
+    if (convention != Convention::NED_FRD)
+        throw std::runtime_error("Invalid convention");
+    gz::sim::Entity entity_bck = this->entity;
+    *this = from_xdyn(pose.Pos(), pose.Rot(), lin_vel, ang_vel);
+    this->entity = entity_bck;
+}
